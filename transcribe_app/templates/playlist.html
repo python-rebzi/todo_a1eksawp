@@ -1,0 +1,129 @@
+{% extends 'transcribe.html' %}
+
+{% block title %}
+    Плейлист
+{% endblock %}
+
+{% block content %}
+    <div class="video-box">
+        <form method="post" action="{% url 'playlist' %}">
+            {% csrf_token %}
+            <div class="new-inputbox inputbox">
+                <ion-icon name="list-outline"></ion-icon>
+                <input type="text" name="playlist_url" required>
+                <label for="playlist_url">Другой плейлист с YouTube:</label>
+            </div>
+        </form>
+        <div class="now-player" id="player"></div>
+        {% if errors %}
+            <div id="errors">
+                {% for playlist_id, error_obj in errors.items %}
+                    <button class="very_long" onclick="
+                            setVideoTime('{{ error_obj.video_id }}', 0)">
+                        <strong>ОШИБКА</strong>
+                        .../watch?v={{ error_obj.video_id }} - {{ error_obj.description }}
+                        <strong>{{ playlist_id }}</strong>
+                    </button>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+    <div class="form-box">
+        <div class="inputbox">
+            <ion-icon name="search-outline"></ion-icon>
+            <input type="text" name="words_filter" id="filter" title="Введите часть слова" required>
+            <label for="words_filter">Фильтр слов среди {{ id_ok_count }} видео:</label>
+        </div>
+        <div class="timecodes">
+            {% for transcription in videos.transcriptions %}
+                {% for timecode, obj in transcription.items %}
+                    <div class="timecode-container">
+                        <div class="timecode-button">
+                            <button class="timecode-button" type="button" onclick="
+                                    setVideoTime('{{ obj.video_id }}', {{ obj.seconds }})">
+                                <strong>{{ timecode }}</strong>
+                                {{ obj.phrase }}
+                                <strong>{{ forloop.parentloop.counter }}</strong>
+                            </button>
+                        </div>
+                    <label class="switch">
+                      <input type="checkbox">
+                      <span class="slider round"></span>
+                    </label>
+                    </div>
+                {% endfor %}
+            {% endfor %}
+        </div>
+    </div>
+{% endblock %}
+
+{% block script %}
+    <script>
+      const tag = document.createElement('script');
+      let nowId = '{{ videos.videos_id.0 }}'
+      let lastTxtId
+      let txtId
+
+      tag.src = "https://www.youtube.com/iframe_api";
+      const firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+      let playerJS;
+
+      function onYouTubeIframeAPIReady() {
+        playerJS = new YT.Player('player', {
+          height: '720',
+          width: '1280',
+          videoId: nowId,
+        });
+      }
+
+      function setVideoTime(id, time) {
+        let ClassPlayer = document.querySelectorAll('.now-player')
+        nowId = id
+        txtId = 'https://www.youtube.com/embed/'+nowId+'?enablejsapi=1'
+        if (lastTxtId !== txtId) {
+            ClassPlayer[0].setAttribute('src', txtId);
+            ClassPlayer[0].classList.add("now-player")
+            setTimeout(() => {seekToTime(time)}, 600)
+            lastTxtId = txtId
+        }
+        else {
+            seekToTime(time)
+        }
+      }
+
+      function seekToTime(time) {
+        playerJS.seekTo(time);
+        playerJS.playVideo();
+      }
+
+      const nowPlayer = document.querySelector("body");
+
+      nowPlayer.addEventListener('keydown', (event) => {
+       if (event.code === 'Space' && filterInput !== document.activeElement) {
+        event.preventDefault();
+        if (playerJS.getPlayerState() === 2) {
+          playerJS.playVideo();
+        } else {
+          playerJS.pauseVideo();
+        }
+      }
+      });
+
+      const filterInput = document.querySelector('#filter');
+        const buttons = document.querySelectorAll('.timecode-container');
+
+        filterInput.addEventListener('input', () => {
+          const query = filterInput.value.toLowerCase().trim();
+          buttons.forEach((button) => {
+            const buttonText = button.textContent.toLowerCase();
+            if (buttonText.includes(query)) {
+              button.style.display = 'flex';
+            } else {
+              button.style.display = 'none';
+            }
+          });
+        });
+    </script>
+{% endblock %}
